@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Доступ</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
+    <style>
+        :root { --bg: #0d1117; --card: #161b22; --text: #c9d1d9; --accent: #58a6ff; --border: #30363d; --error: #ff7b72; }
+        * { user-select: none; -webkit-user-select: none; box-sizing: border-box; }
+        input, .allow-select { user-select: text !important; -webkit-user-select: text !important; }
+        body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { background: var(--card); border: 1px solid var(--border); padding: 25px; border-radius: 12px; text-align: center; width: 95%; max-width: 600px; }
+        input { background: #000; border: 1px solid var(--border); color: #fff; padding: 14px; width: 100%; margin: 15px 0; border-radius: 8px; text-align: center; font-size: 16px; outline: none; }
+        input:focus { border-color: var(--accent); }
+        .btn-main { background: var(--accent); color: #fff; border: none; padding: 15px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; font-size: 16px; margin-bottom: 10px; }
+        #my-id { background: #000; padding: 10px; border-radius: 6px; font-family: monospace; border: 1px dashed var(--accent); color: #fff; cursor: pointer; display: inline-block; margin-top: 10px; }
+        #main-content { display: none; text-align: left; width: 100%; align-self: flex-start; }
+        #doc-data { line-height: 1.6; margin-top: 20px; }
+        #doc-data table { border-collapse: collapse; width: 100%; margin: 15px 0; background: #000; }
+        #doc-data td, #doc-data th { border: 1px solid var(--border); padding: 8px; }
+        .controls { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .btn-refresh { background: #21262d; color: var(--accent); border: 1px solid var(--border); padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold; }
+        .version-tag { font-size: 0.7rem; color: #8b949e; display: block; margin-top: 15px; text-align: center; }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+
+    <div id="login-screen" class="container">
+        <h2 style="color:var(--accent); margin-top:0;">Вход</h2>
+        <input type="text" id="pass-input" placeholder="Введите ваш ключ">
+        <button class="btn-main" onclick="checkAccess()">ОТКРЫТЬ</button>
+        <div id="my-id" onclick="copyToClipboard()">ЗАГРУЗКА...</div>
+    </div>
+
+    <div id="main-content" class="container">
+        <div class="controls">
+            <span style="font-weight: bold; color: var(--accent);">Документ загружен</span>
+            <button class="btn-refresh" onclick="loadDoc(true)">🔄 ОБНОВИТЬ</button>
+        </div>
+        <div id="doc-data" class="allow-select">Загрузка...</div>
+        <span class="version-tag" id="status-line">Версия: 2.0.1 (Force-Fetch)</span>
+    </div>
+
+    <script>
+        const SECRET = "TTK_PRO_2026";
+        const FILE_NAME = "ПСКиПР.docx";
+
+        // Удаление старых воркеров при загрузке
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
+        }
+
+        function getDeviceID() {
+            let id = localStorage.getItem('ttk_dev_id_v2');
+            if (!id) {
+                id = `TTK-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+                localStorage.setItem('ttk_dev_id_v2', id);
+            }
+            return id;
+        }
+
+        const deviceID = getDeviceID();
+        document.getElementById('my-id').innerText = deviceID;
+
+        window.onload = () => {
+            const savedKey = localStorage.getItem('ttk_token');
+            if (savedKey && validateKey(savedKey, true)) showContent();
+        };
+
+        function validateKey(pass, silent = false) {
+            try {
+                const timeHex = pass.substring(0, 8);
+                const expiryMs = parseInt(timeHex, 16) * 1000;
+                const checkHash = btoa(deviceID + expiryMs + SECRET).substring(0, 6).toUpperCase();
+                if (pass.substring(8) !== checkHash) return false;
+                if (Date.now() > expiryMs) {
+                    if (!silent) alert("Ключ истек!");
+                    return false;
+                }
+                return true;
+            } catch(e) { return false; }
+        }
+
+        function checkAccess() {
+            const pass = document.getElementById('pass-input').value.trim().toUpperCase();
+            if (validateKey(pass)) {
+                localStorage.setItem('ttk_token', pass);
+                showContent();
+            } else { alert("Ключ неверен"); }
+        }
+
+        function showContent() {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('main-content').style.display = 'block';
+            loadDoc();
+        }
+
+        async function loadDoc(manual = false) {
+            const docDisplay = document.getElementById('doc-data');
+            const status = document.getElementById('status-line');
+            if (manual) docDisplay.innerHTML = "Обновление данных...";
+
+            try {
+                // Генерация уникального ключа для каждого запроса
+                const cacheBuster = "?v=" + Date.now() + "_" + Math.random().toString(36).substring(7);
+                
+                const res = await fetch(FILE_NAME + cacheBuster, {
+                    cache: "no-store",
+                    headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }
+                });
+
+                if (!res.ok) throw new Error();
+
+                const buffer = await res.arrayBuffer();
+                const out = await mammoth.convertToHtml({arrayBuffer: buffer});
+                docDisplay.innerHTML = out.value;
+                status.innerText = "Последнее обновление: " + new Date().toLocaleTimeString();
+            } catch (e) {
+                docDisplay.innerHTML = `<p style="color:var(--error)">Ошибка! Файл "${FILE_NAME}" не найден. Проверьте имя файла на сервере.</p>`;
+            }
+        }
+
+        function copyToClipboard() {
+            const text = document.getElementById('my-id').innerText;
+            const el = document.createElement('textarea');
+            el.value = text;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            const btn = document.getElementById('my-id');
+            btn.innerText = "СКОПИРОВАНО";
+            setTimeout(() => { btn.innerText = deviceID; }, 1000);
+        }
+    </script>
+</body>
+</html>
