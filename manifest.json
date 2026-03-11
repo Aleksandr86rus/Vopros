@@ -1,5 +1,5 @@
 {
-  "short_name": "ТТК Доступ",
+  "short_name": "Подготовка",
   "name": "Подготовка",
   "description": "Просмотр вопросов и технических карт ТТК",
   "icons": [
@@ -16,6 +16,7 @@
   "theme_color": "#0d1117",
   "orientation": "portrait"
 }
+
 
 
 
