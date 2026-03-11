@@ -1,7 +1,8 @@
 {
   "name": "Подготовка к экзамену",
   "short_name": "Подготовка",
-  "start_url": "index.html",
+  "start_url": "/Vopros/index.html",
+  "scope": "/Vopros/",
   "display": "standalone",
   "background_color": "#0b0e14",
   "theme_color": "#0b0e14",
