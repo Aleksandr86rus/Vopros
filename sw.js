@@ -1,11 +1,9 @@
-{
-  "name": "Подготовка",
-  "short_name": "TTK",
-  "start_url": "index.html",
-  "display": "standalone",
-  "background_color": "#0b0e14",
-  "theme_color": "#0b0e14",
-  "icons": [
-    { "src": "icon.png", "sizes": "192x192", "type": "image/png" }
-  ]
-}
+self.addEventListener('install', (e) => {
+  self.skipWaiting();
+});
+
+self.addEventListener('fetch', (e) => {
+  e.respondWith(fetch(e.request));
+});
+
+
