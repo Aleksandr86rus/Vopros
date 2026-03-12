@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WorkApp</title>
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.4.21/mammoth.browser.min.js"></script>
+    <style>
+        body { background: #0d1117; color: #c9d1d9; font-family: sans-serif; padding: 20px; margin: 0; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; max-width: 400px; margin: 20px auto; }
+        input, button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #30363d; box-sizing: border-box; }
+        button { background: #238636; color: white; border: none; font-weight: bold; cursor: pointer; }
+        .item { background: #21262d; padding: 12px; border: 1px solid #30363d; border-radius: 8px; margin-top: 8px; cursor: pointer; }
+        #view { display: none; }
+        #data { line-height: 1.6; }
+        table { width: 100%; border-collapse: collapse; }
+        td { border: 1px solid #30363d; padding: 5px; }
+    </style>
+</head>
+<body>
+    <div id="auth" class="card">
+        <h2 style="text-align:center">Вход</h2>
+        <input type="text" id="pass" placeholder="Ключ">
+        <button onclick="check()">Войти</button>
+        <p id="uid" onclick="copyUID()" style="font-size:10px; text-align:center; color:#8b949e; cursor:pointer; margin-top:15px;">ID...</p>
+    </div>
+
+    <div id="menu" style="display:none; max-width:400px; margin:auto;">
+        <div class="item" style="border-color:#58a6ff" onclick="load('вопросы.docx')">📖 Общие обязанности</div>
+        <div id="list"></div>
+    </div>
+
+    <div id="view">
+        <button onclick="showMenu()" style="background:#30363d; margin-bottom:15px;">← Назад</button>
+        <div id="data" class="card" style="max-width:100%"></div>
+    </div>
+
+    <script>
+        const S = "TTK_PRO_2026";
+        const getID = () => {
+            let id = localStorage.getItem('v7_id') || 'T-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+            localStorage.setItem('v7_id', id); return id;
+        };
+        const ID = getID();
+
+        for (let i = 1; i <= 11; i++) {
+            document.getElementById('list').innerHTML += `<div class="item" onclick="load('${i}.docx')">Билет ${i}</div>`;
+        }
+
+        function check() {
+            const v = document.getElementById('pass').value.trim().toUpperCase();
+            try {
+                const t = parseInt(v.substr(0, 8), 16) * 1000;
+                const h = btoa(ID + t + S).substr(0, 6).toUpperCase();
+                if (v.substr(8) === h && Date.now() < t) {
+                    localStorage.setItem('v7_t', v); showMenu();
+                } else alert("Ошибка");
+            } catch(e) { alert("Неверно"); }
+        }
+
+        function showMenu() {
+            document.getElementById('auth').style.display = 'none';
+            document.getElementById('view').style.display = 'none';
+            document.getElementById('menu').style.display = 'block';
+            window.scrollTo(0,0);
+        }
+
+        async function load(f) {
+            document.getElementById('menu').style.display = 'none';
+            document.getElementById('view').style.display = 'block';
+            const box = document.getElementById('data');
+            box.innerHTML = "Загрузка...";
+            try {
+                const r = await fetch(f + "?v=" + Date.now());
+                const b = await r.arrayBuffer();
+                const res = await mammoth.convertToHtml({arrayBuffer: b});
+                box.innerHTML = res.value || "Пусто";
+            } catch(e) { box.innerHTML = "Файл не найден"; }
+            window.scrollTo(0,0);
+        }
+
+        function copyUID() { navigator.clipboard.writeText(ID); alert("ID: " + ID); }
+
+        window.onload = () => {
+            document.getElementById('uid').innerText = "ID: " + ID;
+            const t = localStorage.getItem('v7_t');
+            if (t && check(t)) showMenu();
+        };
+    </script>
+</body>
+</html>
